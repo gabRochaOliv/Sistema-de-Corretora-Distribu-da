@@ -9,6 +9,7 @@ public interface BolsaService extends Remote {
     List<Acao> listarAcoes() throws RemoteException;
     boolean atualizarPreco(String simbolo, double novoPreco) throws RemoteException;
     boolean criarAcao(String simbolo, double precoInicial) throws RemoteException;
+    boolean excluirAcao(String simbolo) throws RemoteException;
     
     void registrarCliente(ClientCallback cliente) throws RemoteException;
     void removerCliente(ClientCallback cliente) throws RemoteException;

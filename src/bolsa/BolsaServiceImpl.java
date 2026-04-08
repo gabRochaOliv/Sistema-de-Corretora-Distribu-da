@@ -63,8 +63,20 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
             
             String msg = "Uma NOVA acao foi listada na Corretora! A " + simbolo + " estreou cotada a R$ " + String.format("%.2f", precoInicial) + "!";
             System.out.println("--> Broadcast para clientes: Nova acao cadastrada (" + simbolo + ")");
-            notificarTodos(msg); // O broadcast faz com que ngm precise dar F5
+            notificarTodos(msg); 
             
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean excluirAcao(String simbolo) throws RemoteException {
+        simbolo = simbolo.toUpperCase();
+        if (acoes.remove(simbolo) != null) {
+            String msg = "A acao " + simbolo + " acaba de ser EXCLUIDA da Bolsa e as negociacoes dela foram encerradas!";
+            System.out.println("--> Broadcast para clientes: Acao excluida (" + simbolo + ")");
+            notificarTodos(msg);
             return true;
         }
         return false;
@@ -73,9 +85,11 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     @Override
     public synchronized void registrarCliente(ClientCallback cliente) throws RemoteException {
         if (!clientes.contains(cliente)) {
+            // Emite aviso na rede que tem gente nova ANTES de encaixar ele, para ele não receber a própria notificação.
+            notificarTodos("Um novo cliente investidor acaba de acessar e plugar na Corretora!");
+            
             clientes.add(cliente);
             System.out.println("Um novo cliente investidor se conectou! Total de ativos online: " + clientes.size());
-            notificarTodos("Um novo cliente investidor acaba de acessar e plugar na Corretora!");
         }
     }
 
@@ -87,10 +101,12 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
 
     private synchronized void notificarTodos(String mensagem) {
         List<ClientCallback> inativos = new ArrayList<>();
-        for (ClientCallback c : clientes) {
+        // Itera clonando para evitar concorrencia pesada
+        for (ClientCallback c : new ArrayList<>(clientes)) {
             try {
                 c.receberMensagemGeral(mensagem);
             } catch (RemoteException e) {
+                // Se der exception, esse IP especifico caiu
                 inativos.add(c);
             }
         }

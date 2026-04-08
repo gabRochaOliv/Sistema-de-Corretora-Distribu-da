@@ -10,12 +10,23 @@ public class BolsaClient {
     private static ClientCallback callback;
     private static volatile boolean servidorOnline = false;
 
-    // Cores ANSI para customizacao
+    // Cores ANSI
     public static final String RESET = "\u001B[0m";
     public static final String RED = "\u001B[31m";
     public static final String GREEN = "\u001B[32m";
     public static final String YELLOW = "\u001B[33m";
     public static final String CYAN = "\u001B[36m";
+
+    public static void imprimirMenu() {
+        System.out.println(CYAN + "\n--- MODULO CLIENTE ---" + RESET);
+        System.out.println("1. Listar todas Acoes do Mercado Atual");
+        System.out.println("2. Consultar Preco de 1 Acao");
+        System.out.println("3. Atualizar/Variar Preco Livremente");
+        System.out.println("4. Criar e Listar NOVA Acao na Bolsa");
+        System.out.println("5. Excluir uma Acao da Bolsa");
+        System.out.println("6. Sair da Sessao");
+        System.out.print(YELLOW + "Sua opcao: " + RESET);
+    }
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -26,10 +37,10 @@ public class BolsaClient {
 
         if (!conectar(host)) {
             System.out.println(RED + "Aviso: O servidor parece estar fora do ar neste momento inicial." + RESET);
-            System.out.println(YELLOW + "Mas nao se preocupe, o sistema ficara vigiando para auto-plugar quando ele voltar..." + RESET);
+            System.out.println(YELLOW + "Aguarde, tentando reconectar automaticamente em background..." + RESET);
         }
 
-        // --- SISTEMA AVANCADO DE AUTORECONEXAO E DETECCAO ---
+        // --- SISTEMA DE AUTORECONEXAO (Sem precisar de ENTER) ---
         Thread pingThread = new Thread(() -> {
             while (true) {
                 try {
@@ -40,19 +51,18 @@ public class BolsaClient {
                         } catch (Exception e) {
                             servidorOnline = false;
                             System.out.println(RED + "\n\n#####################################################");
-                            System.out.println("   ALERTA CRITICO: A CONEXAO COM O SERVIDOR CAIU JA!");
-                            System.out.println("   Tentando restabelecer e auto-reconectar em background...");
+                            System.out.println("   ALERTA CRITICO: A CONEXAO COM O SERVIDOR CAIU!");
+                            System.out.println("   Tentando reconectar...");
                             System.out.println("#####################################################\n" + RESET);
-                            System.out.print(YELLOW + "Pressione ENTER pra tentar atualizar visual (Menu isolado temporariamente): " + RESET);
                         }
                     } else {
-                        // O servidor esta down. Vamos tentar a autocura infinita do rmi.
+                        // O servidor esta offline. Fica pingando a auto-conexao.
                         if (conectar(host)) {
-                            System.out.println(GREEN + "\n\n#####################################################");
+                            System.out.println(GREEN + "\n#####################################################");
                             System.out.println("   CONEXAO RE-ESTABELECIDA! SERVIDOR DE VOLTA AO AR!");
-                            System.out.println("   Os seus acessos foram recuperados instantaneamente.");
                             System.out.println("#####################################################\n" + RESET);
-                            System.out.print(YELLOW + "Escolha uma opcao apertando ENTER na tela antiga primeiro ou aperte 1: " + RESET);
+                            // Printa o menu sozinho pra pessoa ver instantaneamente!
+                            imprimirMenu(); 
                         }
                     }
                 } catch (InterruptedException ie) {}
@@ -61,21 +71,17 @@ public class BolsaClient {
         pingThread.setDaemon(true);
         pingThread.start();
 
-        // Menu de Escolhas 
+        // Loop de Acoes
         while (true) {
             try {
-                System.out.println(CYAN + "\n--- MODULO CLIENTE ---" + RESET);
-                System.out.println("1. Listar todas Acoes do Mercado Atual");
-                System.out.println("2. Consultar Preco de 1 Acao");
-                System.out.println("3. Atualizar/Variar Preco Livremente");
-                System.out.println("4. Criar e Listar NOVA Acao na Bolsa");
-                System.out.println("5. Sair da Sessao");
-                System.out.print(YELLOW + "Sua opcao: " + RESET);
+                if (servidorOnline) {
+                    imprimirMenu();
+                }
                 
                 String opcao = scanner.nextLine().trim();
                 
-                if (!servidorOnline && !opcao.equals("5")) {
-                    System.out.println(RED + "Comando Recusado! Voce ainda esta offline... aguarde a auto-conexao voltar a tela." + RESET);
+                if (!servidorOnline && !opcao.equals("6")) {
+                    // Ignora bloqueando sem nem processar e o texto nao enche a tela atoa
                     continue;
                 }
 
@@ -118,18 +124,26 @@ public class BolsaClient {
                     }
 
                 } else if (opcao.equals("5")) {
+                    System.out.print("Digite a Sigla da acao a ser EXPULSA DA BOLSA: ");
+                    String sig = scanner.nextLine().toUpperCase();
+                    boolean ok = servico.excluirAcao(sig);
+                    if (!ok) System.out.println(RED + "Erro: Acao indisponivel ou nao encontrada!" + RESET);
+                    else System.out.println(GREEN + "Expulsao / Delistagem realizada e comunicada aos demais!" + RESET);
+
+                } else if (opcao.equals("6")) {
                     System.out.println(CYAN + "Logout iniciado com sucesso!" + RESET);
                     if (servidorOnline) {
                          try { servico.removerCliente(callback); } catch (Exception ignored) {}
                     }
                     System.exit(0);
                 } else {
+                    // Sem servidor ele nem chega aqui, entao é só validação de número mesmo
                     System.out.println(RED + "Digite os numeros corretos!" + RESET);
                 }
             } catch (Exception e) {
                 if (servidorOnline) {
                      servidorOnline = false;
-                     System.out.println(RED + "\nO Servidor desmanchou a conexao RMI repentinamente!" + RESET);
+                     // Não vamos encher de mensagem pq a thread resolve!
                 }
             }
         }
@@ -137,8 +151,17 @@ public class BolsaClient {
 
     private static boolean conectar(String host) {
         try {
-            String meuIpLocal = java.net.InetAddress.getLocalHost().getHostAddress();
-            System.setProperty("java.rmi.server.hostname", meuIpLocal); 
+            // BUGFIX CRITICO: Como os computadores de vocês podem ter VirtualBox (Cria IPs Fantasmas) 
+            // Nós simulamos uma conexão de internet real Socket para saber exatamento qual IP o RMI 
+            // deve avisar de volta garantindo que seu amigo receba tudo.
+            try (java.net.Socket socket = new java.net.Socket(host, 1099)) {
+                String meuIpReal = socket.getLocalAddress().getHostAddress();
+                System.setProperty("java.rmi.server.hostname", meuIpReal);
+            } catch (Exception socketException) {
+                // Caso extremo fallback para o localhost padro
+                String padrao = java.net.InetAddress.getLocalHost().getHostAddress();
+                System.setProperty("java.rmi.server.hostname", padrao); 
+            }
             
             Registry registry = LocateRegistry.getRegistry(host, 1099);
             servico = (BolsaService) registry.lookup("BolsaService");
