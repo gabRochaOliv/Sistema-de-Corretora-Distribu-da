@@ -4,4 +4,5 @@ import java.rmi.RemoteException;
 
 public interface ClientCallback extends Remote {
     void receberMensagemGeral(String mensagem) throws RemoteException;
+    void ping() throws RemoteException;
 }

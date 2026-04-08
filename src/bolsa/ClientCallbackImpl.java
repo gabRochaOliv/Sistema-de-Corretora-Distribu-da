@@ -18,4 +18,9 @@ public class ClientCallbackImpl extends UnicastRemoteObject implements ClientCal
         System.out.println("-----------------------------------" + RESET);
         BolsaClient.imprimirMenu(); // Reapresenta o menu logo apos qualquer interrupcao de aviso
     }
+
+    @Override
+    public void ping() throws RemoteException {
+        // Metodo passivo! Fica silencioso, só atua como espelho pro servidor saber que este cliente ta vivo!
+    }
 }

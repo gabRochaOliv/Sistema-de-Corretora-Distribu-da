@@ -16,6 +16,38 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
         super();
         clientes = new ArrayList<>();
         carregarAcoes();
+        
+        // --- THREAD INSPETORA DO SERVIDOR (Heartbeat Ativo) ---
+        // O servidor procura ativamente a cada X segundos se alguem fechou o terminal no CTRL+C
+        Thread inspetor = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(2000);
+                    verificarClientesDerrubados();
+                } catch (InterruptedException e) {}
+            }
+        });
+        inspetor.setDaemon(true);
+        inspetor.start();
+    }
+    
+    private synchronized void verificarClientesDerrubados() {
+        List<ClientCallback> inativos = new ArrayList<>();
+        // Tenta dar 1 ping em todo mundo que a gente acha que ta online
+        for (ClientCallback c : new ArrayList<>(clientes)) {
+            try {
+                c.ping();
+            } catch (RemoteException e) {
+                // Se der RemoteException nesse ping, o cara morreu / deu CTRL+C
+                inativos.add(c);
+            }
+        }
+        
+        for (ClientCallback fantasma : inativos) {
+            clientes.remove(fantasma);
+            System.out.println("O Inspetor notou que um Cliente Caiu/Deu CTRL-C no Terminal! Total online agora: " + clientes.size());
+            notificarTodos("Um cliente investidor caiu ou fechou o terminal repentinamente!");
+        }
     }
 
     private void salvarAcoes() {
@@ -52,6 +84,7 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
 
     @Override
     public double consultarPreco(String simbolo) throws RemoteException {
+        System.out.println("[LOG SERVIDOR] Cliente Vendo/Consultando apenas o preco da acao: " + simbolo.toUpperCase());
         Acao acao = acoes.get(simbolo.toUpperCase());
         if (acao != null) return acao.getPreco();
         return -1;
@@ -59,11 +92,13 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
 
     @Override
     public List<Acao> listarAcoes() throws RemoteException {
+        System.out.println("[LOG SERVIDOR] Cliente Acionou/Listou Todas as Acoes de todo o Mercado!");
         return new ArrayList<>(acoes.values());
     }
 
     @Override
     public boolean atualizarPreco(String simbolo, double novoPreco) throws RemoteException {
+        System.out.println("[LOG SERVIDOR] Cliente Disparou Comando p/ Editar Valor da Acao " + simbolo.toUpperCase() + " para: R$ " + novoPreco);
         Acao acao = acoes.get(simbolo.toUpperCase());
         if (acao != null) {
             double precoAntigo = acao.getPreco();
@@ -80,6 +115,7 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     
     @Override
     public boolean criarAcao(String simbolo, double precoInicial) throws RemoteException {
+        System.out.println("[LOG SERVIDOR] Cliente Disparou I.P.O Criando Inserindo a Nova Acao " + simbolo.toUpperCase() + " na Bolsa!");
         simbolo = simbolo.toUpperCase();
         if (!acoes.containsKey(simbolo)) {
             acoes.put(simbolo, new Acao(simbolo, precoInicial));
@@ -94,6 +130,7 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
 
     @Override
     public boolean excluirAcao(String simbolo) throws RemoteException {
+        System.out.println("[LOG SERVIDOR] Cliente Assassino Deletou e Excluiu Completamente a acao " + simbolo.toUpperCase() + " de nossas operacoes!");
         simbolo = simbolo.toUpperCase();
         if (acoes.remove(simbolo) != null) {
             salvarAcoes(); 
@@ -107,15 +144,17 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     @Override
     public synchronized void registrarCliente(ClientCallback cliente) throws RemoteException {
         if (!clientes.contains(cliente)) {
+            notificarTodos("Um novo cliente investidor acaba de acessar e plugar na Corretora!");
             clientes.add(cliente);
-            System.out.println("Novo acesso! Total online: " + clientes.size());
+            System.out.println("Novo cliente investidor Acessou/Plugou! Total online operando agora: " + clientes.size());
         }
     }
 
     @Override
     public synchronized void removerCliente(ClientCallback cliente) throws RemoteException {
         if (clientes.remove(cliente)) {
-            System.out.println("Um Cliente escolheu sair. Total online agora: " + clientes.size());
+            notificarTodos("Um cliente investidor deslogou pacificamente com o Comando(6) e saiu da Corretora!");
+            System.out.println("Um Cliente escolheu sair do Terminal com Comando (6). Total online agora: " + clientes.size());
         }
     }
 
@@ -128,6 +167,8 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
                 inativos.add(c);
             }
         }
+        // Se durante a NOTIFICACAO acharmos um fantasma, só arranca calado, 
+        // pois a Thread Inspetora ja cuida dos recados oficiais.
         clientes.removeAll(inativos);
     }
 }

@@ -40,6 +40,15 @@ public class BolsaClient {
             System.out.println(YELLOW + "Aguarde, tentando reconectar automaticamente em background..." + RESET);
         }
 
+        // --- SISTEMA ANTI-QUEDA VERTICAL (Captura CTRL+C e fechamento do terminal no X) ---
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (servidorOnline && servico != null && callback != null) {
+                try {
+                    servico.removerCliente(callback);
+                } catch (Exception ignored) {}
+            }
+        }));
+
         Thread pingThread = new Thread(() -> {
             while (true) {
                 try {
@@ -68,12 +77,13 @@ public class BolsaClient {
         pingThread.setDaemon(true);
         pingThread.start();
 
+        // Print inicial no começo da aplicação inteira
+        if (servidorOnline) {
+            imprimirMenu();
+        }
+
         while (true) {
             try {
-                if (servidorOnline) {
-                    imprimirMenu();
-                }
-                
                 String opcao = scanner.nextLine().trim();
                 
                 if (!servidorOnline && !opcao.equals("6")) {
@@ -82,46 +92,92 @@ public class BolsaClient {
 
                 if (opcao.equals("1")) {
                     List<Acao> acoes = servico.listarAcoes();
-                    System.out.println(GREEN + "\n>> BOLSA DE VALORES HOJE:" + RESET);
-                    for (Acao acao : acoes) {
-                        System.out.println(acao);
+                    if (acoes.isEmpty()) {
+                        System.out.println(YELLOW + "Mercado parado - Nenhuma acao listada atualmente." + RESET);
+                    } else {
+                        System.out.println(GREEN + "\n>> BOLSA DE VALORES HOJE:" + RESET);
+                        for (Acao acao : acoes) {
+                            System.out.println(acao);
+                        }
                     }
+                    imprimirMenu();
+                    
                 } else if (opcao.equals("2")) {
                     System.out.print("Me de a sua Sigla (ex: BTC): ");
                     String sigla = scanner.nextLine().toUpperCase();
+                    
                     double p = servico.consultarPreco(sigla);
-                    if (p == -1) System.out.println(RED + "Infelizmente nao encontramos isso na rede." + RESET);
-                    else System.out.println(GREEN + "VALOR DO ATIVO - " + sigla + ": R$ " + String.format("%.2f", p) + RESET);
+                    if (p == -1) {
+                         System.out.println(RED + "Erro: Nao existe acao com a sigla '" + sigla + "'." + RESET);
+                    } else {
+                         System.out.println(GREEN + "VALOR DO ATIVO - " + sigla + ": R$ " + String.format("%.2f", p) + RESET);
+                    }
+                    imprimirMenu();
                     
                 } else if (opcao.equals("3")) {
                     System.out.print("Sigla da acao a ser modificada: ");
                     String sig = scanner.nextLine().toUpperCase();
+                    
+                    // Tratamento Instantâneo de Erro - Verificar antes de perguntar o valor
+                    if (servico.consultarPreco(sig) == -1) {
+                        System.out.println(RED + "Erro Critico: Essa Acao ('" + sig + "') NÃO existe no Banco de Dados! Operacao Interrompida." + RESET);
+                        imprimirMenu();
+                        continue;
+                    }
+                    
                     System.out.print("Qual vai ser o novo Preco R$: ");
                     try {
                         double val = Double.parseDouble(scanner.nextLine());
                         boolean ok = servico.atualizarPreco(sig, val);
-                        if (!ok) System.out.println(RED + "Recusado: Ativo sem circulacao (nao existe)." + RESET);
+                        if (!ok) {
+                            System.out.println(RED + "Falha desconhecida ao atualizar acao." + RESET);
+                            imprimirMenu();
+                        }
                     } catch (NumberFormatException nfe) {
-                        System.out.println(RED + "Oops, isso nao parece uma quantia em dinheiro viavel." + RESET);
+                        System.out.println(RED + "Erro de Digitacao: Você inseriu Letras ao inves do Preco Numerico da Acao!" + RESET);
+                        imprimirMenu();
                     }
                     
                 } else if (opcao.equals("4")) {
                     System.out.print("Escolha a Sigla Unica (Ex: PETR4, NVDA): ");
                     String sig = scanner.nextLine().toUpperCase();
+                    
+                    // Tratamento Instantâneo de Erro - Se a acao ja tem preco, já existe!
+                    if (servico.consultarPreco(sig) != -1) {
+                        System.out.println(RED + "Erro Critico: Plagio - Essa Acao ('" + sig + "') JA EXISTE no Banco de Dados e esta sendo negociada!" + RESET);
+                        imprimirMenu();
+                        continue;
+                    }
+                    
                     System.out.print("Lance o precificamento inicial (IPO) dela para o mercado R$: ");
                     try {
                         double val = Double.parseDouble(scanner.nextLine());
                         boolean ok = servico.criarAcao(sig, val);
-                        if (!ok) System.out.println(RED + "Erro: Ja tem uma moeda com essa cara rodando." + RESET);
+                        if (!ok) {
+                            System.out.println(RED + "Erro desconhecido ao cadastrar na bolsa." + RESET);
+                            imprimirMenu();
+                        }
                     } catch (NumberFormatException nfe) {
-                        System.out.println(RED + "Falta de precisao de valor (coloque so o numero)." + RESET);
+                        System.out.println(RED + "Erro de Digitacao: Você inseriu Letras ao inves do Preco Numerico da Acao!" + RESET);
+                        imprimirMenu();
                     }
 
                 } else if (opcao.equals("5")) {
                     System.out.print("Digite a Sigla da acao a ser EXPULSA DA BOLSA: ");
                     String sig = scanner.nextLine().toUpperCase();
+                    
+                    // Tratamento Instantâneo de Erro - Ver antes de expulsar fantasmas!
+                    if (servico.consultarPreco(sig) == -1) {
+                         System.out.println(RED + "Erro Critico: Ninguém pode excluir uma Acao ('" + sig + "') que NUNCA FOI CADASTRADA!" + RESET);
+                         imprimirMenu();
+                         continue;
+                    }
+                    
                     boolean ok = servico.excluirAcao(sig);
-                    if (!ok) System.out.println(RED + "Erro: Acao indisponivel ou nao encontrada!" + RESET);
+                    if (!ok) {
+                        System.out.println(RED + "Erro ao processar delete interno!" + RESET);
+                        imprimirMenu();
+                    }
 
                 } else if (opcao.equals("6")) {
                     System.out.println(CYAN + "Logout iniciado com sucesso!" + RESET);
@@ -130,7 +186,10 @@ public class BolsaClient {
                     }
                     System.exit(0);
                 } else {
-                    System.out.println(RED + "Digite os numeros corretos!" + RESET);
+                    if (!opcao.isEmpty()) {
+                        System.out.println(RED + "Digite somente os numeros da lista!" + RESET);
+                        imprimirMenu();
+                    }
                 }
             } catch (Exception e) {
                 if (servidorOnline) {
@@ -142,7 +201,6 @@ public class BolsaClient {
 
     private static boolean conectar(String host) {
         try {
-            // Garante que a JVM do seu amigo envie o IP correto para voce devolver a notificacao
             try (java.net.Socket socket = new java.net.Socket(host, 1099)) {
                 String meuIpReal = socket.getLocalAddress().getHostAddress();
                 System.setProperty("java.rmi.server.hostname", meuIpReal);
