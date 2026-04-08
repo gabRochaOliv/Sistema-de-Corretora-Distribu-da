@@ -7,6 +7,7 @@ public interface BolsaService extends Remote {
     void ping() throws RemoteException;
     double consultarPreco(String simbolo) throws RemoteException;
     List<Acao> listarAcoes() throws RemoteException;
+    
     boolean atualizarPreco(String simbolo, double novoPreco) throws RemoteException;
     boolean criarAcao(String simbolo, double precoInicial) throws RemoteException;
     boolean excluirAcao(String simbolo) throws RemoteException;

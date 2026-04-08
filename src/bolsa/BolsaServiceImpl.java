@@ -21,9 +21,7 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     private void salvarAcoes() {
         try (java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream(new java.io.FileOutputStream(ARQUIVO_DADOS))) {
             oos.writeObject(acoes);
-        } catch (Exception e) {
-            System.err.println("Erro Critico ao salvar acoes no disco: " + e.getMessage());
-        }
+        } catch (Exception e) {}
     }
 
     @SuppressWarnings("unchecked")
@@ -34,7 +32,6 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
                 acoes = (Map<String, Acao>) ois.readObject();
                 System.out.println("--> Banco de DADOS VINCULADO! (" + acoes.size() + " acoes carregadas).");
             } catch (Exception e) {
-                System.err.println("Erro ao ler banco de dados corrompido: " + e.getMessage());
                 iniciarAcoesPadrao();
             }
         } else {
@@ -56,9 +53,7 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     @Override
     public double consultarPreco(String simbolo) throws RemoteException {
         Acao acao = acoes.get(simbolo.toUpperCase());
-        if (acao != null) {
-            return acao.getPreco();
-        }
+        if (acao != null) return acao.getPreco();
         return -1;
     }
 
@@ -73,13 +68,11 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
         if (acao != null) {
             double precoAntigo = acao.getPreco();
             acao.setPreco(novoPreco);
-            salvarAcoes(); // Atualiza o Banco de Dados Fisico
+            salvarAcoes(); 
             
             String msg = "A acao " + simbolo.toUpperCase() + " sofreu uma alteracao! De R$ " + 
                          String.format("%.2f", precoAntigo) + " para R$ " + String.format("%.2f", novoPreco) + "!";
-            System.out.println("--> Atualizando " + clientes.size() + " clientes simultaneos: " + msg);
             notificarTodos(msg);
-            
             return true;
         }
         return false;
@@ -90,12 +83,10 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
         simbolo = simbolo.toUpperCase();
         if (!acoes.containsKey(simbolo)) {
             acoes.put(simbolo, new Acao(simbolo, precoInicial));
-            salvarAcoes(); // Atualiza o Banco de Dados Fisico
+            salvarAcoes(); 
             
             String msg = "Uma NOVA acao foi listada na Corretora! A " + simbolo + " estreou cotada a R$ " + String.format("%.2f", precoInicial) + "!";
-            System.out.println("--> Broadcast para clientes: Nova acao cadastrada (" + simbolo + ")");
             notificarTodos(msg); 
-            
             return true;
         }
         return false;
@@ -105,9 +96,8 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     public boolean excluirAcao(String simbolo) throws RemoteException {
         simbolo = simbolo.toUpperCase();
         if (acoes.remove(simbolo) != null) {
-            salvarAcoes(); // Remove do Banco Fisico
+            salvarAcoes(); 
             String msg = "A acao " + simbolo + " acaba de ser EXCLUIDA da Bolsa e as negociacoes dela foram encerradas!";
-            System.out.println("--> Broadcast para clientes: Acao excluida (" + simbolo + ")");
             notificarTodos(msg);
             return true;
         }
@@ -117,28 +107,24 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     @Override
     public synchronized void registrarCliente(ClientCallback cliente) throws RemoteException {
         if (!clientes.contains(cliente)) {
-            // Emite aviso na rede que tem gente nova ANTES de encaixar ele, para ele não receber a própria notificação.
-            notificarTodos("Um novo cliente investidor acaba de acessar e plugar na Corretora!");
-            
             clientes.add(cliente);
-            System.out.println("Um novo cliente investidor se conectou! Total de ativos online: " + clientes.size());
+            System.out.println("Novo acesso! Total online: " + clientes.size());
         }
     }
 
     @Override
     public synchronized void removerCliente(ClientCallback cliente) throws RemoteException {
-        clientes.remove(cliente);
-        System.out.println("Cliente se desconectou do painel. Total online agora: " + clientes.size());
+        if (clientes.remove(cliente)) {
+            System.out.println("Um Cliente escolheu sair. Total online agora: " + clientes.size());
+        }
     }
 
     private synchronized void notificarTodos(String mensagem) {
         List<ClientCallback> inativos = new ArrayList<>();
-        // Itera clonando para evitar concorrencia pesada
         for (ClientCallback c : new ArrayList<>(clientes)) {
             try {
                 c.receberMensagemGeral(mensagem);
             } catch (RemoteException e) {
-                // Se der exception, esse IP especifico caiu
                 inativos.add(c);
             }
         }

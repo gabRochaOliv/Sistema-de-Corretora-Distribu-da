@@ -40,7 +40,6 @@ public class BolsaClient {
             System.out.println(YELLOW + "Aguarde, tentando reconectar automaticamente em background..." + RESET);
         }
 
-        // --- SISTEMA DE AUTORECONEXAO (Sem precisar de ENTER) ---
         Thread pingThread = new Thread(() -> {
             while (true) {
                 try {
@@ -56,12 +55,10 @@ public class BolsaClient {
                             System.out.println("#####################################################\n" + RESET);
                         }
                     } else {
-                        // O servidor esta offline. Fica pingando a auto-conexao.
                         if (conectar(host)) {
                             System.out.println(GREEN + "\n#####################################################");
                             System.out.println("   CONEXAO RE-ESTABELECIDA! SERVIDOR DE VOLTA AO AR!");
                             System.out.println("#####################################################\n" + RESET);
-                            // Printa o menu sozinho pra pessoa ver instantaneamente!
                             imprimirMenu(); 
                         }
                     }
@@ -71,7 +68,6 @@ public class BolsaClient {
         pingThread.setDaemon(true);
         pingThread.start();
 
-        // Loop de Acoes
         while (true) {
             try {
                 if (servidorOnline) {
@@ -81,7 +77,6 @@ public class BolsaClient {
                 String opcao = scanner.nextLine().trim();
                 
                 if (!servidorOnline && !opcao.equals("6")) {
-                    // Ignora bloqueando sem nem processar e o texto nao enche a tela atoa
                     continue;
                 }
 
@@ -118,7 +113,6 @@ public class BolsaClient {
                         double val = Double.parseDouble(scanner.nextLine());
                         boolean ok = servico.criarAcao(sig, val);
                         if (!ok) System.out.println(RED + "Erro: Ja tem uma moeda com essa cara rodando." + RESET);
-                        else System.out.println(GREEN + "Sua acao abriu pregao e todos serao instintivamente notificados agora mesmo!" + RESET);
                     } catch (NumberFormatException nfe) {
                         System.out.println(RED + "Falta de precisao de valor (coloque so o numero)." + RESET);
                     }
@@ -128,7 +122,6 @@ public class BolsaClient {
                     String sig = scanner.nextLine().toUpperCase();
                     boolean ok = servico.excluirAcao(sig);
                     if (!ok) System.out.println(RED + "Erro: Acao indisponivel ou nao encontrada!" + RESET);
-                    else System.out.println(GREEN + "Expulsao / Delistagem realizada e comunicada aos demais!" + RESET);
 
                 } else if (opcao.equals("6")) {
                     System.out.println(CYAN + "Logout iniciado com sucesso!" + RESET);
@@ -137,13 +130,11 @@ public class BolsaClient {
                     }
                     System.exit(0);
                 } else {
-                    // Sem servidor ele nem chega aqui, entao é só validação de número mesmo
                     System.out.println(RED + "Digite os numeros corretos!" + RESET);
                 }
             } catch (Exception e) {
                 if (servidorOnline) {
                      servidorOnline = false;
-                     // Não vamos encher de mensagem pq a thread resolve!
                 }
             }
         }
@@ -151,14 +142,11 @@ public class BolsaClient {
 
     private static boolean conectar(String host) {
         try {
-            // BUGFIX CRITICO: Como os computadores de vocês podem ter VirtualBox (Cria IPs Fantasmas) 
-            // Nós simulamos uma conexão de internet real Socket para saber exatamento qual IP o RMI 
-            // deve avisar de volta garantindo que seu amigo receba tudo.
+            // Garante que a JVM do seu amigo envie o IP correto para voce devolver a notificacao
             try (java.net.Socket socket = new java.net.Socket(host, 1099)) {
                 String meuIpReal = socket.getLocalAddress().getHostAddress();
                 System.setProperty("java.rmi.server.hostname", meuIpReal);
             } catch (Exception socketException) {
-                // Caso extremo fallback para o localhost padro
                 String padrao = java.net.InetAddress.getLocalHost().getHostAddress();
                 System.setProperty("java.rmi.server.hostname", padrao); 
             }

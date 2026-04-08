@@ -4,7 +4,6 @@ import java.rmi.server.UnicastRemoteObject;
 
 public class ClientCallbackImpl extends UnicastRemoteObject implements ClientCallback {
     private static final long serialVersionUID = 1L;
-
     public static final String RESET = "\u001B[0m";
     public static final String YELLOW = "\u001B[33m";
 
