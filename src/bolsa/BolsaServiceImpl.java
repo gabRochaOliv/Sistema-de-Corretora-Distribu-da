@@ -45,10 +45,25 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
             double precoAntigo = acao.getPreco();
             acao.setPreco(novoPreco);
             
-            String msg = "O preco da acao " + simbolo.toUpperCase() + " sofreu alteracao de R$ " + 
+            String msg = "A acao " + simbolo.toUpperCase() + " sofreu uma alteracao! De R$ " + 
                          String.format("%.2f", precoAntigo) + " para R$ " + String.format("%.2f", novoPreco) + "!";
-            System.out.println("--> Atualizando " + clientes.size() + " clientes: " + msg);
+            System.out.println("--> Atualizando " + clientes.size() + " clientes simultaneos: " + msg);
             notificarTodos(msg);
+            
+            return true;
+        }
+        return false;
+    }
+    
+    @Override
+    public boolean criarAcao(String simbolo, double precoInicial) throws RemoteException {
+        simbolo = simbolo.toUpperCase();
+        if (!acoes.containsKey(simbolo)) {
+            acoes.put(simbolo, new Acao(simbolo, precoInicial));
+            
+            String msg = "Uma NOVA acao foi listada na Corretora! A " + simbolo + " estreou cotada a R$ " + String.format("%.2f", precoInicial) + "!";
+            System.out.println("--> Broadcast para clientes: Nova acao cadastrada (" + simbolo + ")");
+            notificarTodos(msg); // O broadcast faz com que ngm precise dar F5
             
             return true;
         }
@@ -59,15 +74,15 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     public synchronized void registrarCliente(ClientCallback cliente) throws RemoteException {
         if (!clientes.contains(cliente)) {
             clientes.add(cliente);
-            System.out.println("Um novo cliente se conectou. Total de ativos: " + clientes.size());
-            notificarTodos("Um novo cliente investidor acaba de se conectar a Corretora!");
+            System.out.println("Um novo cliente investidor se conectou! Total de ativos online: " + clientes.size());
+            notificarTodos("Um novo cliente investidor acaba de acessar e plugar na Corretora!");
         }
     }
 
     @Override
     public synchronized void removerCliente(ClientCallback cliente) throws RemoteException {
         clientes.remove(cliente);
-        System.out.println("Cliente se desconectou. Total de ativos: " + clientes.size());
+        System.out.println("Cliente se desconectou do painel. Total online agora: " + clientes.size());
     }
 
     private synchronized void notificarTodos(String mensagem) {
