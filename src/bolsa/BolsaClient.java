@@ -128,11 +128,20 @@ public class BolsaClient {
                     System.out.print("Qual vai ser o novo Preco R$: ");
                     try {
                         double val = Double.parseDouble(scanner.nextLine());
+                        
+                        // BLOQUEIO ANTI-FRAUDE/ERRO PARA VALORES NEGATIVOS
+                        if (val <= 0) {
+                            System.out.println(RED + "Operacao Cancelada: Nenhuma Acao da Bolsa pode ser Negativa ou Zero." + RESET);
+                            imprimirMenu();
+                            continue;
+                        }
+
                         boolean ok = servico.atualizarPreco(sig, val);
                         if (!ok) {
                             System.out.println(RED + "Falha desconhecida ao atualizar acao." + RESET);
                             imprimirMenu();
                         }
+                        // Se DEU OK, a propria callback de rede vai repintar o menu para nao dar BUG DUPLO
                     } catch (NumberFormatException nfe) {
                         System.out.println(RED + "Erro de Digitacao: Você inseriu Letras ao inves do Preco Numerico da Acao!" + RESET);
                         imprimirMenu();
@@ -152,6 +161,14 @@ public class BolsaClient {
                     System.out.print("Lance o precificamento inicial (IPO) dela para o mercado R$: ");
                     try {
                         double val = Double.parseDouble(scanner.nextLine());
+                        
+                        // BLOQUEIO ANTI-FRAUDE/ERRO PARA VALORES NEGATIVOS
+                        if (val <= 0) {
+                            System.out.println(RED + "IPO Cancelado: O Lançamento de Acoes novas não pode ser Menor ou Igual a Zero." + RESET);
+                            imprimirMenu();
+                            continue;
+                        }
+
                         boolean ok = servico.criarAcao(sig, val);
                         if (!ok) {
                             System.out.println(RED + "Erro desconhecido ao cadastrar na bolsa." + RESET);
