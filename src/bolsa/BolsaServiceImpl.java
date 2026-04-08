@@ -10,15 +10,44 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     private static final long serialVersionUID = 1L;
     private Map<String, Acao> acoes;
     private List<ClientCallback> clientes;
+    private final String ARQUIVO_DADOS = "bd_corretora.dat";
 
     public BolsaServiceImpl() throws RemoteException {
         super();
-        acoes = new ConcurrentHashMap<>();
         clientes = new ArrayList<>();
-        
+        carregarAcoes();
+    }
+
+    private void salvarAcoes() {
+        try (java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream(new java.io.FileOutputStream(ARQUIVO_DADOS))) {
+            oos.writeObject(acoes);
+        } catch (Exception e) {
+            System.err.println("Erro Critico ao salvar acoes no disco: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void carregarAcoes() {
+        java.io.File file = new java.io.File(ARQUIVO_DADOS);
+        if (file.exists()) {
+            try (java.io.ObjectInputStream ois = new java.io.ObjectInputStream(new java.io.FileInputStream(ARQUIVO_DADOS))) {
+                acoes = (Map<String, Acao>) ois.readObject();
+                System.out.println("--> Banco de DADOS VINCULADO! (" + acoes.size() + " acoes carregadas).");
+            } catch (Exception e) {
+                System.err.println("Erro ao ler banco de dados corrompido: " + e.getMessage());
+                iniciarAcoesPadrao();
+            }
+        } else {
+            iniciarAcoesPadrao();
+        }
+    }
+    
+    private void iniciarAcoesPadrao() {
+        acoes = new ConcurrentHashMap<>();
         acoes.put("BTC", new Acao("BTC", 350000.0));
         acoes.put("ETH", new Acao("ETH", 15000.0));
         acoes.put("SOL", new Acao("SOL", 800.0));
+        salvarAcoes();
     }
 
     @Override
@@ -44,6 +73,7 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
         if (acao != null) {
             double precoAntigo = acao.getPreco();
             acao.setPreco(novoPreco);
+            salvarAcoes(); // Atualiza o Banco de Dados Fisico
             
             String msg = "A acao " + simbolo.toUpperCase() + " sofreu uma alteracao! De R$ " + 
                          String.format("%.2f", precoAntigo) + " para R$ " + String.format("%.2f", novoPreco) + "!";
@@ -60,6 +90,7 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
         simbolo = simbolo.toUpperCase();
         if (!acoes.containsKey(simbolo)) {
             acoes.put(simbolo, new Acao(simbolo, precoInicial));
+            salvarAcoes(); // Atualiza o Banco de Dados Fisico
             
             String msg = "Uma NOVA acao foi listada na Corretora! A " + simbolo + " estreou cotada a R$ " + String.format("%.2f", precoInicial) + "!";
             System.out.println("--> Broadcast para clientes: Nova acao cadastrada (" + simbolo + ")");
@@ -74,6 +105,7 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
     public boolean excluirAcao(String simbolo) throws RemoteException {
         simbolo = simbolo.toUpperCase();
         if (acoes.remove(simbolo) != null) {
+            salvarAcoes(); // Remove do Banco Fisico
             String msg = "A acao " + simbolo + " acaba de ser EXCLUIDA da Bolsa e as negociacoes dela foram encerradas!";
             System.out.println("--> Broadcast para clientes: Acao excluida (" + simbolo + ")");
             notificarTodos(msg);

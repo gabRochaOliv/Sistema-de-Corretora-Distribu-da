@@ -17,5 +17,6 @@ public class ClientCallbackImpl extends UnicastRemoteObject implements ClientCal
         System.out.println(YELLOW + "\n\n>>> [NOTIFICACAO EM TEMPO REAL] <<<");
         System.out.println(mensagem);
         System.out.println("-----------------------------------" + RESET);
+        BolsaClient.imprimirMenu(); // Reapresenta o menu logo apos qualquer interrupcao de aviso
     }
 }
