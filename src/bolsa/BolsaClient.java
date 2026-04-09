@@ -95,7 +95,9 @@ public class BolsaClient {
                     if (acoes.isEmpty()) {
                         System.out.println(YELLOW + "Mercado parado - Nenhuma acao listada atualmente." + RESET);
                     } else {
-                        System.out.println(GREEN + "\n>> BOLSA DE VALORES HOJE:" + RESET);
+                        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss");
+                        String horaAtual = java.time.LocalTime.now().format(formatter);
+                        System.out.println(GREEN + "\n>> BOLSA DE VALORES HOJE (" + horaAtual + "):" + RESET);
                         for (Acao acao : acoes) {
                             System.out.println(acao);
                         }
@@ -118,8 +120,14 @@ public class BolsaClient {
                     System.out.print("Sigla da acao a ser modificada: ");
                     String sig = scanner.nextLine().toUpperCase();
                     
+                    if (sig.matches("^[0-9]+$")) {
+                        System.out.println(RED + "Erro: A Acao nao pode ter um nome feito apenas de Numeros!" + RESET);
+                        imprimirMenu();
+                        continue;
+                    }
+                    
                     // Tratamento Instantâneo de Erro - Verificar antes de perguntar o valor
-                    if (servico.consultarPreco(sig) == -1) {
+                    if (!servico.acaoExiste(sig)) {
                         System.out.println(RED + "Erro Critico: Essa Acao ('" + sig + "') NÃO existe no Banco de Dados! Operacao Interrompida." + RESET);
                         imprimirMenu();
                         continue;
@@ -141,7 +149,6 @@ public class BolsaClient {
                             System.out.println(RED + "Falha desconhecida ao atualizar acao." + RESET);
                             imprimirMenu();
                         }
-                        // Se DEU OK, a propria callback de rede vai repintar o menu para nao dar BUG DUPLO
                     } catch (NumberFormatException nfe) {
                         System.out.println(RED + "Erro de Digitacao: Você inseriu Letras ao inves do Preco Numerico da Acao!" + RESET);
                         imprimirMenu();
@@ -151,8 +158,14 @@ public class BolsaClient {
                     System.out.print("Escolha a Sigla Unica (Ex: PETR4, NVDA): ");
                     String sig = scanner.nextLine().toUpperCase();
                     
+                    if (sig.matches("^[0-9]+$")) {
+                        System.out.println(RED + "Erro: A Acao nao pode ser cadastrada apenas com Numeros!" + RESET);
+                        imprimirMenu();
+                        continue;
+                    }
+                    
                     // Tratamento Instantâneo de Erro - Se a acao ja tem preco, já existe!
-                    if (servico.consultarPreco(sig) != -1) {
+                    if (servico.acaoExiste(sig)) {
                         System.out.println(RED + "Erro Critico: Plagio - Essa Acao ('" + sig + "') JA EXISTE no Banco de Dados e esta sendo negociada!" + RESET);
                         imprimirMenu();
                         continue;
@@ -184,7 +197,7 @@ public class BolsaClient {
                     String sig = scanner.nextLine().toUpperCase();
                     
                     // Tratamento Instantâneo de Erro - Ver antes de expulsar fantasmas!
-                    if (servico.consultarPreco(sig) == -1) {
+                    if (!servico.acaoExiste(sig)) {
                          System.out.println(RED + "Erro Critico: Ninguém pode excluir uma Acao ('" + sig + "') que NUNCA FOI CADASTRADA!" + RESET);
                          imprimirMenu();
                          continue;

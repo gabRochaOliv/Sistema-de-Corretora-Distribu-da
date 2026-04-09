@@ -35,7 +35,7 @@ public class BolsaServer {
             
             System.out.println(GREEN + "\n#########################################################");
             System.out.println("     SERVIDOR DA CORRETORA ONLINE E OPERACIONAL!");
-            System.out.println("     IP para entregar ao seu amigo: " + ip);
+            System.out.println("     IP DO SERVIDOR: " + ip);
             System.out.println("#########################################################" + RESET);
             
         } catch (Exception e) {

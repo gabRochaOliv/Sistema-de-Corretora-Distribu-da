@@ -94,10 +94,15 @@ public class BolsaServiceImpl extends UnicastRemoteObject implements BolsaServic
 
     @Override
     public double consultarPreco(String simbolo) throws RemoteException {
-        System.out.println("[LOG SERVIDOR - " + capturarIP() + "] Cliente Consultou Sigla (Apenas Visao): " + simbolo.toUpperCase());
+        System.out.println("[LOG SERVIDOR - " + capturarIP() + "] Cliente Consultou a Sigla: " + simbolo.toUpperCase());
         Acao acao = acoes.get(simbolo.toUpperCase());
         if (acao != null) return acao.getPreco();
         return -1;
+    }
+
+    @Override
+    public boolean acaoExiste(String simbolo) throws RemoteException {
+        return acoes.containsKey(simbolo.toUpperCase());
     }
 
     @Override

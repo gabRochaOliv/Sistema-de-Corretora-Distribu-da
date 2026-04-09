@@ -6,6 +6,7 @@ import java.util.List;
 public interface BolsaService extends Remote {
     void ping() throws RemoteException;
     double consultarPreco(String simbolo) throws RemoteException;
+    boolean acaoExiste(String simbolo) throws RemoteException;
     List<Acao> listarAcoes() throws RemoteException;
     
     boolean atualizarPreco(String simbolo, double novoPreco) throws RemoteException;
